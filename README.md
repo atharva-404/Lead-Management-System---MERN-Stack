@@ -38,7 +38,7 @@ It allows **Admin login, Agent management, CSV/XLSX lead upload, and automatic d
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/atharva-404your-repo>.git
+git clone https://github.com/atharva-404/Lead-Management-System---MERN-Stack.git
 ````
 
 ### 2. Backend Setup
