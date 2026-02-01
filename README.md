@@ -131,7 +131,7 @@ Content-Type: multipart/form-data
 
 1. Admin logs in and gets a JWT token
 2. Admin adds up to 5 agents
-3. Upload a CSV/XLSX file with leads
+3. Upload a CSV file with leads
 4. Leads are distributed equally among agents and saved in MongoDB
 5. Dashboard displays agents and their assigned leads
 
