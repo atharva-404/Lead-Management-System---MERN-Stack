@@ -11,7 +11,7 @@ It allows **Admin login, Agent management, CSV/XLSX lead upload, and automatic d
 ## 🚀 Features
 - 🔑 Admin Login (JWT authentication)  
 - 👨‍💼 Agent Creation & Management  
-- 📂 Upload CSV/XLSX files  
+- 📂 Upload CSV files  
 - ⚖️ Distribute leads equally among first 5 agents  
 - 💾 Store leads in MongoDB  
 - 📊 Frontend dashboard to view agents and assigned leads  
