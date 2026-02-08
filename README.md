@@ -115,8 +115,8 @@ Authorization: Bearer <admin_jwt_token>
   "name": "Agent 1",
   "email": "agent1@test.com",
   "mobile": "+919876543210",
-  "password": "123456"
-}
+  "password": "1234567"
+} 
 ```
 
 ### 📂 Upload Leads
