@@ -63,6 +63,7 @@ MONGO_URI=mongodb://localhost:27017/lead_management
 JWT_SECRET=your_jwt_secret
 ```
 
+
 Run the backend:
 
 ```bash
