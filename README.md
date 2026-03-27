@@ -111,6 +111,7 @@ POST /api/agents
 Authorization: Bearer <admin_jwt_token>
 ```
 
+
 **Request Body:**
 
 ```json
