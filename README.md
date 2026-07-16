@@ -4,7 +4,6 @@
 A **minimal MERN-stack application** built for an internship machine test.  
 It allows **Admin login, Agent management, CSV/XLSX lead upload, and automatic distribution of leads among agents.**
 
-
 ---
 
 ## 🚀 Features
