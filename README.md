@@ -1,4 +1,5 @@
 
+
 # 📌 Lead Management System – MERN Stack
 
 A **minimal MERN-stack application** built for an internship machine test.  
