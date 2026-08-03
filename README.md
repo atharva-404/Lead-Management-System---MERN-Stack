@@ -15,7 +15,6 @@ It allows **Admin login, Agent management, CSV/XLSX lead upload, and automatic d
 - 💾 Store leads in MongoDB  
 - 📊 Frontend dashboard to view agents and assigned leads  
 
-
 ---
 
 
