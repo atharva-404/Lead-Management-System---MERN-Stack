@@ -25,7 +25,7 @@ It allows **Admin login, Agent management, CSV/XLSX lead upload, and automatic d
 ├── frontend/  # React.js dashboard
 
 ````
-----
+---
 
 
 ## ⚙️ Tech Stack
