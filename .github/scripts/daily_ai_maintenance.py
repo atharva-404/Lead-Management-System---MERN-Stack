@@ -47,6 +47,7 @@ DEFAULTS = {
     "test_globs": [],               # which paths count as tests
     "doc_globs": ["*.md", "**/*.md"],
     "test_exempt_globs": [],        # code verified by build only (no test runner available)
+    "node_check_globs": [],         # plain-Node files to syntax-check with `node --check` before writing
 }
 
 DENIED_PARTS = {
@@ -262,7 +263,7 @@ def load_config(root: Path) -> dict:
     if path.exists():
         cfg.update(json.loads(path.read_text(encoding="utf-8-sig")))
     for key in ("editable_globs", "new_file_globs", "reference_files", "test_globs", "doc_globs",
-                "context_paths", "focus_areas", "test_exempt_globs"):
+                "context_paths", "focus_areas", "test_exempt_globs", "node_check_globs"):
         if not isinstance(cfg.get(key), list) or not all(isinstance(x, str) for x in cfg[key]):
             raise RuntimeError(f"config key {key!r} must be a list of strings")
     return cfg
@@ -424,6 +425,22 @@ def count_changed_lines(old: str, new: str) -> int:
     )
 
 
+def node_syntax_error(rel: str, text: str) -> str | None:
+    """Parse-only check (`node --check`); returns an error message or None. Never executes the code."""
+    suffix = Path(rel).suffix or ".js"
+    with tempfile.TemporaryDirectory() as tmp:
+        probe = Path(tmp) / f"probe{suffix}"
+        probe.write_text(text, encoding="utf-8")
+        try:
+            result = subprocess.run(["node", "--check", str(probe)], capture_output=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return None                      # node unavailable: the workflow's own check still runs
+    if result.returncode == 0:
+        return None
+    lines = [ln for ln in result.stderr.decode("utf-8", "replace").splitlines() if ln.strip()]
+    return " ".join(lines[-3:])[:300]
+
+
 def plan_changes(root: Path, cfg: dict, ctx: Context, proposal: dict) -> list[Planned]:
     changes = proposal.get("changes", [])
     if not isinstance(changes, list):
@@ -486,6 +503,10 @@ def plan_changes(root: Path, cfg: dict, ctx: Context, proposal: dict) -> list[Pl
                 ast.parse(new, filename=rel)
             except SyntaxError as exc:
                 raise Rejected(f"Python syntax error in proposed {rel}: {exc}") from None
+        if matches(rel, cfg["node_check_globs"]):
+            err = node_syntax_error(rel, new)
+            if err:
+                raise Rejected(f"JavaScript syntax error in proposed {rel}: {err}")
         total_lines += count_changed_lines(old_for_plan or "", new)
         planned.append(Planned(rel, new, old_for_plan, crlf, action))
     if total_lines > cfg["max_changed_lines"]:
@@ -570,11 +591,21 @@ def run(root: Path, mock_response: Path | None, dry_run: bool) -> int:
         return 0
 
     if mock_response is not None:
-        raw = mock_response.read_text(encoding="utf-8")
+        proposal = parse_proposal(mock_response.read_text(encoding="utf-8"))
+        planned = plan_changes(root, cfg, ctx, proposal)
     else:
-        raw = call_openai(build_prompt(cfg, ctx, recent_commits(root)), model)
-    proposal = parse_proposal(raw)
-    planned = plan_changes(root, cfg, ctx, proposal)
+        prompt = build_prompt(cfg, ctx, recent_commits(root))
+        for attempt in (1, 2):
+            try:
+                proposal = parse_proposal(call_openai(prompt, model))
+                planned = plan_changes(root, cfg, ctx, proposal)
+                break
+            except Rejected as exc:
+                if attempt == 2:
+                    raise
+                log(f"Proposal rejected ({exc}); asking the model for one corrected proposal.")
+                prompt += (f"\n\nYour previous proposal was rejected by the safety checks: {redact(str(exc))}\n"
+                           "Return a corrected proposal, or an empty changes array if unsure.")
 
     if not planned:
         log("No meaningful changes proposed; no commit or pull request will be created.")
