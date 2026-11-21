@@ -25,7 +25,7 @@ import urllib.error
 import urllib.request
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 API_URL = "https://api.openai.com/v1/responses"
 CONFIG_RELATIVE = ".github/daily-maintenance.json"
@@ -478,6 +478,51 @@ def merge_duplicate_changes(changes: list) -> list:
     return list(merged.values())
 
 
+DESTRUCTURED_REQUIRE = re.compile(
+    r"(?:const|let|var)\s*\{([^}]+)\}\s*=\s*require\(\s*['\"](\.{1,2}/[^'\"]+)['\"]\s*\)")
+
+
+def check_test_imports(root: Path, planned: list["Planned"]) -> None:
+    """Static check: names a new JS test destructures from a local module must be exported there."""
+    finals = {p.path: p.new_text for p in planned}
+    for p in planned:
+        if p.action != "create" or not p.path.endswith(".js"):
+            continue
+        base = PurePosixPath(p.path).parent
+        for names, target in DESTRUCTURED_REQUIRE.findall(p.new_text):
+            parts: list[str] = []
+            for seg in (base / target).as_posix().split("/"):
+                if seg == "..":
+                    if not parts:
+                        raise Rejected(f"{p.path} requires a path outside the repository: {target}")
+                    parts.pop()
+                elif seg not in ("", "."):
+                    parts.append(seg)
+            module = "/".join(parts)
+            src = None
+            for candidate in (module, module + ".js", module + "/index.js"):
+                if candidate in finals:
+                    src = finals[candidate]
+                    break
+                path = root / candidate
+                if path.is_file() and not path.is_symlink() and not is_denied(candidate):
+                    src = read_exact(path)[0]
+                    break
+            if src is None:
+                raise Rejected(f"{p.path} requires '{target}', which does not exist")
+            for raw in names.split(","):
+                name = raw.split(":")[0].strip()
+                if not name:
+                    continue
+                exported = re.search(
+                    rf"exports\b[^;]*\b{re.escape(name)}\b|\bexports\.{re.escape(name)}\b|\.{re.escape(name)}\s*=",
+                    src)
+                if not exported:
+                    raise Rejected(
+                        f"{p.path} imports '{name}' from '{target}' but that module does not export it; "
+                        f"export it (e.g. module.exports.{name} = {name};) in the same proposal")
+
+
 def plan_changes(root: Path, cfg: dict, ctx: Context, proposal: dict) -> list[Planned]:
     changes = proposal.get("changes", [])
     if not isinstance(changes, list):
@@ -550,6 +595,7 @@ def plan_changes(root: Path, cfg: dict, ctx: Context, proposal: dict) -> list[Pl
                 raise Rejected(f"JavaScript syntax error in proposed {rel}: {err}")
         total_lines += count_changed_lines(old_for_plan or "", new)
         planned.append(Planned(rel, new, old_for_plan, crlf, action))
+    check_test_imports(root, planned)
     if total_lines > cfg["max_changed_lines"]:
         raise Rejected(f"change too large: {total_lines} lines > {cfg['max_changed_lines']}")
     if planned and cfg["require_tests_for_code_changes"]:
