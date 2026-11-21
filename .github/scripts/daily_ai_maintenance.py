@@ -39,6 +39,7 @@ DEFAULTS = {
     "new_file_globs": [],           # new files the agent may create (tests only)
     "reference_files": [],          # read-only files shown for context (manifests)
     "max_files": 4,
+    "max_attempts": 3,              # model attempts per run (first try plus corrections)
     "max_changed_lines": 160,
     "max_file_chars": 20000,
     "max_new_file_chars": 12000,
@@ -441,8 +442,13 @@ def node_syntax_error(rel: str, text: str) -> str | None:
             return None                      # node unavailable: the workflow's own check still runs
     if result.returncode == 0:
         return None
-    lines = [ln for ln in result.stderr.decode("utf-8", "replace").splitlines() if ln.strip()]
-    return " ".join(lines[-3:])[:300]
+    lines = []
+    for ln in result.stderr.decode("utf-8", "replace").splitlines():
+        ln = ln.rstrip()
+        if not ln.strip() or ln.lstrip().startswith("at ") or ln.startswith("Node.js v"):
+            continue
+        lines.append(ln.replace(str(probe), rel))
+    return " | ".join(lines[:5])[:500]
 
 
 def merge_duplicate_changes(changes: list) -> list:
@@ -682,17 +688,19 @@ def run(root: Path, mock_response: Path | None, dry_run: bool) -> int:
         planned = plan_changes(root, cfg, ctx, proposal)
     else:
         prompt = build_prompt(cfg, ctx, recent_commits(root))
-        for attempt in (1, 2):
+        attempts = max(1, int(cfg["max_attempts"]))
+        for attempt in range(1, attempts + 1):
             try:
                 proposal = parse_proposal(call_openai(prompt, model))
                 planned = plan_changes(root, cfg, ctx, proposal)
                 break
             except Rejected as exc:
-                if attempt == 2:
+                if attempt == attempts:
                     raise
-                log(f"Proposal rejected ({exc}); asking the model for one corrected proposal.")
+                log(f"Attempt {attempt}/{attempts} rejected ({exc}); asking the model to correct it.")
                 prompt += (f"\n\nYour previous proposal was rejected by the safety checks: {redact(str(exc))}\n"
-                           "Return a corrected proposal, or an empty changes array if unsure.")
+                           "Return a corrected proposal, or an empty changes array if unsure. "
+                           "Prefer a smaller, simpler change.")
 
     if not planned:
         log("No meaningful changes proposed; no commit or pull request will be created.")
