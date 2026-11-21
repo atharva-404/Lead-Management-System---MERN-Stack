@@ -48,6 +48,7 @@ DEFAULTS = {
     "doc_globs": ["*.md", "**/*.md"],
     "test_exempt_globs": [],        # code verified by build only (no test runner available)
     "node_check_globs": [],         # plain-Node files to syntax-check with `node --check` before writing
+    "new_file_must_contain": [],    # every newly created file must contain all of these strings
 }
 
 DENIED_PARTS = {
@@ -265,7 +266,8 @@ def load_config(root: Path) -> dict:
     if path.exists():
         cfg.update(json.loads(path.read_text(encoding="utf-8-sig")))
     for key in ("editable_globs", "new_file_globs", "reference_files", "test_globs", "doc_globs",
-                "context_paths", "focus_areas", "test_exempt_globs", "node_check_globs"):
+                "context_paths", "focus_areas", "test_exempt_globs", "node_check_globs",
+                "new_file_must_contain"):
         if not isinstance(cfg.get(key), list) or not all(isinstance(x, str) for x in cfg[key]):
             raise RuntimeError(f"config key {key!r} must be a list of strings")
     return cfg
@@ -528,6 +530,9 @@ def plan_changes(root: Path, cfg: dict, ctx: Context, proposal: dict) -> list[Pl
             if not isinstance(new, str) or not new.strip():
                 raise Rejected(f"empty content for new file: {rel}")
             new = new.replace("\r\n", "\n")
+            for required in cfg["new_file_must_contain"]:
+                if required not in new:
+                    raise Rejected(f"new file {rel} must contain {required!r} (see project guidance)")
             if len(new) > cfg["max_new_file_chars"]:
                 raise Rejected(f"new file too large: {rel}")
         else:
