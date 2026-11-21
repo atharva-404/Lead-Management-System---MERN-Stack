@@ -451,6 +451,13 @@ def node_syntax_error(rel: str, text: str) -> str | None:
     return " | ".join(lines[:5])[:500]
 
 
+def find_error(rel: str, find: object, found: int) -> str:
+    snippet = re.sub(r"\s+", " ", str(find))[:80]
+    how = "was not found" if found == 0 else f"matched {found} times"
+    return (f"'find' text must match exactly once in {rel}: it {how} (starts with {snippet!r}). "
+            "Copy the lines exactly from the provided file, including indentation, and add context lines until unique")
+
+
 def merge_duplicate_changes(changes: list) -> list:
     """Combine several entries for one path: edit+edit appends the edits, create+edit applies the
     edits to the new content. A second 'create' for the same path stays ambiguous and is rejected."""
@@ -478,7 +485,8 @@ def merge_duplicate_changes(changes: list) -> list:
             if not isinstance(e, dict) or not isinstance(e.get("find"), str) \
                     or not isinstance(e.get("replace"), str) or not e["find"] \
                     or content.count(e["find"]) != 1:
-                raise Rejected(f"'find' text must match exactly once in {path}")
+                raise Rejected(find_error(path, e.get("find") if isinstance(e, dict) else "", 
+                                          content.count(e["find"]) if isinstance(e, dict) and isinstance(e.get("find"), str) and e["find"] else 0))
             content = content.replace(e["find"], e["replace"], 1)
         prev["content"] = content
     return list(merged.values())
@@ -564,8 +572,9 @@ def plan_changes(root: Path, cfg: dict, ctx: Context, proposal: dict) -> list[Pl
                 if not isinstance(e, dict) or not isinstance(e.get("find"), str) \
                         or not isinstance(e.get("replace"), str) or not e["find"]:
                     raise Rejected(f"malformed edit for {rel}")
-                if new.count(e["find"]) != 1:
-                    raise Rejected(f"'find' text must match exactly once in {rel}")
+                found = new.count(e["find"])
+                if found != 1:
+                    raise Rejected(find_error(rel, e["find"], found))
                 new = new.replace(e["find"], e["replace"], 1)
             if new == old:
                 continue
