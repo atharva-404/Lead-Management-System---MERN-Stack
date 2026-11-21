@@ -1,0 +1,29 @@
+﻿{
+  "purpose": "MERN Lead Management System: admin JWT login, agent management, CSV/XLSX lead upload and equal distribution of leads across agents. React 18 (create-react-app) frontend in frontend/, Express + Mongoose backend in backend/.",
+  "guidance": "Preserve the Express/Mongoose backend and the React frontend. The backend has no test runner configured, so write tests with Node's built-in test runner (node:test and node:assert, file name *.test.js under backend/tests/) and only test code that can be imported without connecting to MongoDB or the network (extract a small pure helper into the route/middleware file if needed, and test that). Do not add dependencies. Never read, print or rely on real values of backend/.env. Frontend changes are verified by the CRA build only, so keep them small and type-safe.",
+  "focus_areas": [
+    "lead upload parsing and validation (CSV/XLSX headers, empty rows, file type checks)",
+    "lead distribution among agents (uneven counts, zero rows, remainders)",
+    "agent management validation (email format, duplicate handling, response shape)",
+    "authentication and authorization (token parsing, missing secrets, role checks)",
+    "backend error handling and consistent API error responses",
+    "React component improvements (loading/error states, form validation)"
+  ],
+  "context_paths": ["backend", "frontend/src", "README.md"],
+  "editable_globs": [
+    "backend/**/*.js",
+    "frontend/src/**/*.js",
+    "frontend/src/**/*.jsx",
+    "frontend/src/**/*.css",
+    "README.md",
+    "backend/README.md",
+    "frontend/README.md"
+  ],
+  "new_file_globs": ["backend/tests/**/*.test.js"],
+  "reference_files": ["backend/package.json", "frontend/package.json"],
+  "test_globs": ["backend/tests/**/*.test.js", "frontend/src/**/*.test.js"],
+  "test_exempt_globs": ["frontend/src/**"],
+  "require_tests_for_code_changes": true,
+  "max_files": 4,
+  "max_changed_lines": 160
+}
