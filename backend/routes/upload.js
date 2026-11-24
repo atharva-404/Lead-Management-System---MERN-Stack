@@ -21,10 +21,10 @@ function parseXlsx(filePath){
 router.post('/', auth, upload.single('file'), async (req,res)=>{
   try{
     if(!req.file) return res.status(400).json({ message: 'No file uploaded' });
-    const allowed = ['.csv','.xlsx','.xls','axls','axl'];
+    const allowed = ['.csv','.xlsx','.xls'];
     const ext = path.extname(req.file.originalname).toLowerCase();
     if(!allowed.includes(ext)){
-      // accept axls/axl names too
+      
       if(!['.csv','.xlsx','.xls'].includes(ext)) {
         fs.unlinkSync(req.file.path);
         return res.status(400).json({ message: 'Invalid file type' });
